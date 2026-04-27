@@ -1,0 +1,19 @@
+services:
+  obsidian-board:
+    build: .
+    container_name: obsidian-board
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    environment:
+      - BOARD_PATH=/data/Board.md
+      - AUTH_PASSWORD=${AUTH_PASSWORD:-}
+      - PORT=8080
+    volumes:
+      - /mnt/user/sync/obsidian-vault:/data:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

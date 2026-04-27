@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🗂️ Board</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f1117;
+  --surface: #161822;
+  --card: #1c1e2e;
+  --card-hover: #22253a;
+  --border: #2a2d42;
+  --border-active: #3b82f6;
+  --text: #e1e2e8;
+  --text-secondary: #9ca3af;
+  --muted: #6b7280;
+  --accent: #3b82f6;
+  --accent-dim: rgba(59,130,246,0.15);
+  --danger: #ef4444;
+  --success: #22c55e;
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Login ──────────────────────────────────────── */
+#login-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+.login-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2.5rem;
+  width: 320px;
+  text-align: center;
+}
+.login-box h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+.login-box p { color: var(--muted); font-size: 0.8rem; margin-bottom: 1.5rem; }
+.login-box input {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.9rem;
+  outline: none;
+  margin-bottom: 1rem;
+}
+.login-box input:focus { border-color: var(--accent); }
+.login-box button {
+  width: 100%;
+  padding: 0.6rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--accent);
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.login-box button:hover { opacity: 0.9; }
+.login-error { color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem; display: none; }
+
+/* ── Board Layout ──────────────────────────────── */
+#board-screen { display: none; padding: 1rem 1.5rem 5rem; }
+#board-screen.visible { display: block; }
+
+header {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  backdrop-filter: blur(12px);
+}
+header h1 { font-size: 1.35rem; font-weight: 600; display: inline; }
+header .badge {
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted);
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+header .stats {
+  float: right;
+  font-size: 0.75rem;
+  color: var(--muted);
+  display: flex;
+  gap: 0.75rem;
+}
+header .hint {
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+}
+
+.board {
+  display: flex;
+  gap: 0.75rem;
+  min-height: 70vh;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+}
+
+/* ── Column ─────────────────────────────────────── */
+.column {
+  flex: 1;
+  min-width: 240px;
+  max-width: 320px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.column.drag-over {
+  border-color: var(--accent);
+  box-shadow: 0 0 20px rgba(59,130,246,0.15);
+}
+
+.column-header {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.column-header .left { display: flex; align-items: center; gap: 0.4rem; }
+.column-header .emoji { font-size: 0.9rem; }
+.column-header .label { font-size: 0.8rem; font-weight: 600; }
+.column-header .count {
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted);
+}
+.column-header .add-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 2px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.column-header .add-btn:hover { color: var(--text); background: var(--card); }
+
+.drop-hint {
+  text-align: center;
+  padding: 0.4rem;
+  font-size: 0.7rem;
+  color: var(--accent);
+  font-weight: 500;
+  display: none;
+}
+.column.drag-over .drop-hint { display: block; }
+
+/* ── Cards ──────────────────────────────────────── */
+.cards {
+  flex: 1;
+  padding: 0.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.65rem;
+  cursor: grab;
+  transition: border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s;
+  position: relative;
+}
+.card:hover { border-color: rgba(59,130,246,0.4); }
+.card.dragging { opacity: 0.4; transform: rotate(1deg); }
+.card.checked .card-text { text-decoration: line-through; color: var(--muted); }
+
+.card-inner { display: flex; align-items: flex-start; gap: 0.45rem; }
+
+.card-checkbox {
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--muted);
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.card-checkbox:hover { border-color: var(--accent); }
+.card-checkbox.checked {
+  background: var(--success);
+  border-color: var(--success);
+}
+.card-checkbox.checked::after {
+  content: '✓';
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.card-text {
+  flex: 1;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.card-category {
+  font-size: 0.6rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.card-delete {
+  position: absolute;
+  top: 6px; right: 6px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 2px 4px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.card:hover .card-delete { opacity: 1; }
+.card-delete:hover { color: var(--danger); }
+
+/* ── Add Form ───────────────────────────────────── */
+.add-form {
+  padding: 0.5rem;
+  display: none;
+}
+.add-form.visible { display: block; }
+.add-form-row {
+  display: flex;
+  gap: 0.35rem;
+}
+.add-form input {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.75rem;
+  outline: none;
+}
+.add-form input:focus { border-color: var(--accent); }
+.add-form .btn-add {
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--accent);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.add-form .btn-cancel {
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+/* ── Notes ──────────────────────────────────────── */
+.notes-section {
+  margin-top: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.notes-section summary {
+  padding: 0.65rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text);
+}
+.notes-section summary:hover { background: var(--card); }
+.notes-content {
+  padding: 0 1rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: pre-line;
+}
+
+/* ── Empty state ────────────────────────────────── */
+.empty {
+  text-align: center;
+  padding: 2rem 0.5rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  opacity: 0.5;
+}
+
+/* ── Toast ──────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  color: var(--text);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.3s;
+  z-index: 100;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.error { border-color: var(--danger); color: var(--danger); }
+
+/* ── Mobile ─────────────────────────────────────── */
+@media (max-width: 640px) {
+  #board-screen { padding: 0.75rem; }
+  .column { min-width: 260px; }
+  header .stats { float: none; margin-top: 0.5rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>🗂️ Board</h1>
+    <p>Obsidian Sync</p>
+    <input type="password" id="login-password" placeholder="Password" autofocus>
+    <button onclick="login()">Enter</button>
+    <div class="login-error" id="login-error">Wrong password</div>
+  </div>
+</div>
+
+<!-- Board -->
+<div id="board-screen">
+  <header>
+    <h1>🗂️ Board</h1>
+    <span class="badge">Obsidian Sync</span>
+    <div class="stats" id="stats"></div>
+    <div class="hint">Drag cards to move · Check to toggle · Changes sync to Board.md</div>
+  </header>
+  <div class="board" id="board"></div>
+  <div class="notes-section" id="notes-section" style="display:none">
+    <summary>📝 Notas</summary>
+    <div class="notes-content" id="notes-content"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const COLUMN_ORDER = ['hoy', 'semana', 'backlog', 'habitos', 'hecho']
+const COLUMN_META = {
+  hoy:      { emoji: '🔥', label: 'Hoy',          color: '#ef4444', canAdd: true,  canDrop: true,  canCheck: true },
+  semana:   { emoji: '📋', label: 'Esta Semana',  color: '#f59e0b', canAdd: true,  canDrop: true,  canCheck: true },
+  backlog:  { emoji: '🗂️', label: 'Backlog',      color: '#3b82f6', canAdd: true,  canDrop: true,  canCheck: true },
+  habitos:  { emoji: '🔄', label: 'Hábitos',      color: '#8b5cf6', canAdd: false, canDrop: false, canCheck: true },
+  hecho:    { emoji: '✅', label: 'Hecho',        color: '#22c55e', canAdd: false, canDrop: true,  canCheck: false },
+}
+
+let boardData = null
+let draggingId = null
+let authToken = localStorage.getItem('board-token') || null
+
+// ── API ──────────────────────────────────────────────
+
+async function api(action, payload = {}) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`
+  const res = await fetch(`/api/board${action === 'read' ? '' : '/' + action}`, {
+    method: action === 'read' ? 'GET' : 'POST',
+    headers,
+    body: action === 'read' ? undefined : JSON.stringify(payload),
+  })
+  if (res.status === 401) { authToken = null; localStorage.removeItem('board-token'); showLogin(); throw new Error('Unauthorized') }
+  if (!res.ok) throw new Error((await res.json()).error || `HTTP ${res.status}`)
+  return res.json()
+}
+
+// ── Auth ─────────────────────────────────────────────
+
+async function login() {
+  const pw = document.getElementById('login-password').value
+  if (!pw) return
+  try {
+    const res = await fetch('/api/board', { headers: { 'Authorization': `Bearer ${pw}` } })
+    if (res.ok) {
+      authToken = pw
+      localStorage.setItem('board-token', pw)
+      document.getElementById('login-screen').style.display = 'none'
+      document.getElementById('board-screen').classList.add('visible')
+      await loadBoard()
+    } else {
+      document.getElementById('login-error').style.display = 'block'
+    }
+  } catch (e) {
+    document.getElementById('login-error').textContent = e.message
+    document.getElementById('login-error').style.display = 'block'
+  }
+}
+
+function showLogin() {
+  document.getElementById('login-screen').style.display = 'flex'
+  document.getElementById('board-screen').classList.remove('visible')
+}
+
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') login()
+})
+
+// ── Board Rendering ──────────────────────────────────
+
+async function loadBoard() {
+  try {
+    boardData = await api('read')
+    renderBoard()
+  } catch (e) {
+    toast(e.message, true)
+  }
+}
+
+function renderBoard() {
+  if (!boardData) return
+  const { columns, notes } = boardData
+  const board = document.getElementById('board')
+
+  // Stats
+  const stats = COLUMN_ORDER.map(col => {
+    const meta = COLUMN_META[col]
+    const count = columns[col].length
+    return `<span style="color:${meta.color}">${meta.emoji}${count}</span>`
+  }).join('')
+  document.getElementById('stats').innerHTML = stats
+
+  // Notes
+  if (notes) {
+    document.getElementById('notes-section').style.display = ''
+    document.getElementById('notes-content').textContent = notes
+  } else {
+    document.getElementById('notes-section').style.display = 'none'
+  }
+
+  // Columns
+  board.innerHTML = COLUMN_ORDER.map(col => {
+    const meta = COLUMN_META[col]
+    const tasks = columns[col]
+    const cards = tasks.length === 0
+      ? `<div class="empty">Empty</div>`
+      : tasks.map(task => renderCard(task, meta)).join('')
+
+    return `
+      <div class="column" data-column="${col}"
+           ondragover="handleDragOver(event)"
+           ondrop="handleDrop(event)"
+           ondragleave="handleDragLeave(event)">
+        <div class="column-header" style="border-top: 3px solid ${meta.color}">
+          <div class="left">
+            <span class="emoji">${meta.emoji}</span>
+            <span class="label">${meta.label}</span>
+            <span class="count">${tasks.length}</span>
+          </div>
+          ${meta.canAdd ? `<button class="add-btn" onclick="showAddForm('${col}')" title="Add task">+</button>` : ''}
+        </div>
+        <div class="drop-hint">↕ Drop here</div>
+        <div class="cards">${cards}</div>
+        <div class="add-form" id="add-form-${col}">
+          <div class="add-form-row">
+            <input type="text" placeholder="New task..." id="add-input-${col}"
+                   onkeydown="if(event.key==='Enter')addTask('${col}');if(event.key==='Escape')hideAddForm('${col}')">
+            <button class="btn-add" onclick="addTask('${col}')">Add</button>
+            <button class="btn-cancel" onclick="hideAddForm('${col}')">✕</button>
+          </div>
+        </div>
+      </div>
+    `
+  }).join('')
+}
+
+function renderCard(task, meta) {
+  const category = task.category && meta.label === 'Backlog' ? `<div class="card-category">${task.category}</div>` : ''
+  return `
+    <div class="card ${task.checked ? 'checked' : ''}" draggable="true" data-task-id="${task.id}"
+         ondragstart="handleDragStart(event)"
+         ondragend="handleDragEnd(event)">
+      <button class="card-delete" onclick="deleteTask('${task.id}', event)" title="Delete">✕</button>
+      ${category}
+      <div class="card-inner">
+        <div class="card-checkbox ${task.checked ? 'checked' : ''}"
+             onclick="toggleTask('${task.id}')"></div>
+        <div class="card-text">${escapeHtml(task.text)}</div>
+      </div>
+    </div>
+  `
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div')
+  div.textContent = text
+  return div.innerHTML
+}
+
+// ── Drag & Drop ──────────────────────────────────────
+
+function handleDragStart(e) {
+  draggingId = e.target.dataset.taskId
+  e.target.classList.add('dragging')
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.setData('text/plain', draggingId)
+}
+
+function handleDragEnd(e) {
+  e.target.classList.remove('dragging')
+  draggingId = null
+  document.querySelectorAll('.column').forEach(c => c.classList.remove('drag-over'))
+}
+
+function handleDragOver(e) {
+  e.preventDefault()
+  const col = e.currentTarget.dataset.column
+  const meta = COLUMN_META[col]
+  if (meta.canDrop || col === 'hecho') {
+    e.currentTarget.classList.add('drag-over')
+  }
+}
+
+function handleDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over')
+}
+
+async function handleDrop(e) {
+  e.preventDefault()
+  const targetColumn = e.currentTarget.dataset.column
+  e.currentTarget.classList.remove('drag-over')
+  
+  const taskId = e.dataTransfer.getData('text/plain')
+  if (!taskId) return
+  
+  // Find source column
+  let sourceCol = null
+  for (const col of COLUMN_ORDER) {
+    if (boardData.columns[col].some(t => t.id === taskId)) {
+      sourceCol = col
+      break
+    }
+  }
+  if (!sourceCol || sourceCol === targetColumn) return
+  
+  // Validate: habits can't be moved
+  if (sourceCol === 'habitos') {
+    toast('Hábitos cannot be moved', true)
+    return
+  }
+  
+  try {
+    boardData = await api('move', { taskId, column: targetColumn })
+    renderBoard()
+    toast('Task moved')
+  } catch (e) {
+    toast(e.message, true)
+  }
+}
+
+// ── Actions ──────────────────────────────────────────
+
+async function toggleTask(taskId) {
+  try {
+    boardData = await api('toggle', { taskId })
+    renderBoard()
+  } catch (e) {
+    toast(e.message, true)
+  }
+}
+
+async function deleteTask(taskId, event) {
+  event.stopPropagation()
+  try {
+    boardData = await api('delete', { taskId })
+    renderBoard()
+    toast('Task deleted')
+  } catch (e) {
+    toast(e.message, true)
+  }
+}
+
+function showAddForm(col) {
+  const form = document.getElementById(`add-form-${col}`)
+  form.classList.add('visible')
+  const input = document.getElementById(`add-input-${col}`)
+  input.value = ''
+  setTimeout(() => input.focus(), 50)
+}
+
+function hideAddForm(col) {
+  document.getElementById(`add-form-${col}`).classList.remove('visible')
+}
+
+async function addTask(col) {
+  const input = document.getElementById(`add-input-${col}`)
+  const text = input.value.trim()
+  if (!text) return
+  
+  try {
+    boardData = await api('add', { text, column: col })
+    renderBoard()
+    toast('Task added')
+  } catch (e) {
+    toast(e.message, true)
+  }
+}
+
+// ── Toast ────────────────────────────────────────────
+
+let toastTimeout
+function toast(message, isError = false) {
+  const el = document.getElementById('toast')
+  el.textContent = message
+  el.className = 'toast show' + (isError ? ' error' : '')
+  clearTimeout(toastTimeout)
+  toastTimeout = setTimeout(() => el.className = 'toast', 2500)
+}
+
+// ── Init ─────────────────────────────────────────────
+
+(async function init() {
+  if (authToken) {
+    try {
+      const data = await fetch('/api/board', { headers: { 'Authorization': `Bearer ${authToken}` } })
+      if (data.ok) {
+        document.getElementById('login-screen').style.display = 'none'
+        document.getElementById('board-screen').classList.add('visible')
+        boardData = await data.json()
+        renderBoard()
+        return
+      }
+    } catch {}
+    authToken = null
+  }
+  showLogin()
+})()
+</script>
+</body>
+</html>

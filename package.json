@@ -1,0 +1,13 @@
+{
+  "name": "obsidian-board",
+  "version": "1.0.0",
+  "description": "Self-hosted kanban board that reads/writes Obsidian Board.md",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test board.test.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}
