@@ -255,6 +255,124 @@ header .hint {
 .card:hover .card-delete { opacity: 1; }
 .card-delete:hover { color: var(--danger); }
 
+/* ── Subtasks ───────────────────────────────────── */
+.card-expand {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.65rem;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: color 0.15s, transform 0.2s;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.card-expand:hover { color: var(--text); }
+.card-expand.open { transform: rotate(90deg); }
+
+.subtask-count {
+  font-size: 0.6rem;
+  color: var(--muted);
+  background: var(--card);
+  padding: 0 5px;
+  border-radius: 8px;
+  line-height: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.subtask-count.has-subs { color: var(--accent); }
+
+.subtasks {
+  display: none;
+  padding: 0.35rem 0 0.1rem 1.35rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.35rem;
+}
+.subtasks.visible { display: block; }
+
+.subtask {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 0.2rem 0;
+  font-size: 0.72rem;
+  position: relative;
+}
+.subtask-text {
+  flex: 1;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+.subtask-text.checked-sub {
+  text-decoration: line-through;
+  color: var(--muted);
+  opacity: 0.6;
+}
+.subtask-check {
+  width: 13px; height: 13px;
+  border: 1.5px solid var(--muted);
+  border-radius: 2px;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.subtask-check:hover { border-color: var(--accent); }
+.subtask-check.checked-sub {
+  background: var(--success);
+  border-color: var(--success);
+}
+.subtask-check.checked-sub::after {
+  content: '✓';
+  color: white;
+  font-size: 8px;
+  font-weight: 700;
+}
+.subtask-del {
+  background: none;
+  border: none;
+  color: transparent;
+  cursor: pointer;
+  font-size: 0.65rem;
+  padding: 0 2px;
+  transition: color 0.15s;
+}
+.subtask:hover .subtask-del { color: var(--muted); }
+.subtask-del:hover { color: var(--danger); }
+
+.subtask-add {
+  display: flex;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+  padding-top: 0.3rem;
+}
+.subtask-add input {
+  flex: 1;
+  padding: 0.25rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.68rem;
+  outline: none;
+}
+.subtask-add input:focus { border-color: var(--accent); }
+.subtask-add button {
+  padding: 0.25rem 0.45rem;
+  border-radius: 4px;
+  border: none;
+  font-size: 0.65rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+.subtask-add .sub-btn-add { background: var(--accent); color: white; }
+.subtask-add .sub-btn-add:hover { opacity: 0.85; }
+
 /* ── Add Form ───────────────────────────────────── */
 .add-form {
   padding: 0.5rem;
@@ -517,6 +635,31 @@ function renderBoard() {
 
 function renderCard(task, meta) {
   const category = task.category && meta.label === 'Backlog' ? `<div class="card-category">${task.category}</div>` : ''
+  const subs = task.subtasks || []
+  const doneSubs = subs.filter(s => s.checked).length
+  const hasSubs = subs.length > 0
+
+  const subtaskCountHtml = hasSubs
+    ? `<span class="subtask-count has-subs">${doneSubs}/${subs.length}</span>`
+    : `<span class="subtask-count"></span>`
+
+  const subtasksHtml = subs.map(s => `
+    <div class="subtask">
+      <div class="subtask-check ${s.checked ? 'checked-sub' : ''}"
+           onclick="toggleSubtask('${task.id}','${s.id}',event)"></div>
+      <div class="subtask-text ${s.checked ? 'checked-sub' : ''}">${escapeHtml(s.text)}</div>
+      <button class="subtask-del" onclick="deleteSubtask('${task.id}','${s.id}',event)" title="Delete">✕</button>
+    </div>
+  `).join('')
+
+  const subtaskAddHtml = `
+    <div class="subtask-add">
+      <input type="text" placeholder="Add subtask..." id="sub-input-${task.id}"
+             onkeydown="if(event.key==='Enter')addSubtask('${task.id}');if(event.key==='Escape')this.value=''">
+      <button class="sub-btn-add" onclick="addSubtask('${task.id}')">+</button>
+    </div>
+  `
+
   return `
     <div class="card ${task.checked ? 'checked' : ''}" draggable="true" data-task-id="${task.id}"
          ondragstart="handleDragStart(event)"
@@ -527,6 +670,12 @@ function renderCard(task, meta) {
         <div class="card-checkbox ${task.checked ? 'checked' : ''}"
              onclick="toggleTask('${task.id}')"></div>
         <div class="card-text">${escapeHtml(task.text)}</div>
+        <button class="card-expand" onclick="toggleExpand('${task.id}')" title="Subtasks">▶</button>
+        ${subtaskCountHtml}
+      </div>
+      <div class="subtasks" id="subs-${task.id}">
+        ${subtasksHtml}
+        ${subtaskAddHtml}
       </div>
     </div>
   `
@@ -642,6 +791,66 @@ async function addTask(col) {
     boardData = await api('add', { text, column: col })
     renderBoard()
     toast('Task added')
+  } catch (e) {
+    toast(e.message, true)
+  }
+}
+
+// ── Subtasks ────────────────────────────────────────
+
+function toggleExpand(taskId) {
+  const el = document.getElementById(`subs-${taskId}`)
+  const btn = el?.previousElementSibling?.querySelector('.card-expand')
+  if (el) {
+    el.classList.toggle('visible')
+    btn?.classList.toggle('open')
+    if (el.classList.contains('visible')) {
+      const input = document.getElementById(`sub-input-${taskId}`)
+      if (input) setTimeout(() => input.focus(), 100)
+    }
+  }
+}
+
+async function addSubtask(taskId) {
+  const input = document.getElementById(`sub-input-${taskId}`)
+  const text = input?.value.trim()
+  if (!text) return
+  try {
+    boardData = await api('subtask/add', { taskId, text })
+    renderBoard()
+    // Re-expand after render
+    const el = document.getElementById(`subs-${taskId}`)
+    const btn = el?.previousElementSibling?.querySelector('.card-expand')
+    if (el) { el.classList.add('visible'); btn?.classList.add('open') }
+    toast('Subtask added')
+  } catch (e) {
+    toast(e.message, true)
+  }
+}
+
+async function toggleSubtask(taskId, subtaskId, event) {
+  event.stopPropagation()
+  try {
+    boardData = await api('subtask/toggle', { taskId, subtaskId })
+    renderBoard()
+    // Re-expand
+    const el = document.getElementById(`subs-${taskId}`)
+    const btn = el?.previousElementSibling?.querySelector('.card-expand')
+    if (el) { el.classList.add('visible'); btn?.classList.add('open') }
+  } catch (e) {
+    toast(e.message, true)
+  }
+}
+
+async function deleteSubtask(taskId, subtaskId, event) {
+  event.stopPropagation()
+  try {
+    boardData = await api('subtask/delete', { taskId, subtaskId })
+    renderBoard()
+    const el = document.getElementById(`subs-${taskId}`)
+    const btn = el?.previousElementSibling?.querySelector('.card-expand')
+    if (el) { el.classList.add('visible'); btn?.classList.add('open') }
+    toast('Subtask deleted')
   } catch (e) {
     toast(e.message, true)
   }

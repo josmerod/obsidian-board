@@ -140,13 +140,29 @@ function parseBoard(raw) {
       const text = line.replace(/^[-*] \[[ xX]\] /, '').trim()
       if (text) {
         idCounter++
-        columns[currentColumn].push({
+        const task = {
           id: `board_${idCounter}_${crypto.createHash('md5').update(text + idCounter).digest('hex').slice(0, 6)}`,
           text,
           checked,
           category: currentColumn === 'backlog' ? currentCategory : null,
           column: currentColumn,
-        })
+          subtasks: [],
+        }
+        columns[currentColumn].push(task)
+        // Look ahead for indented subtask lines
+        while (i + 1 < lines.length && /^\s{2,}[-*] \[[ xX]\] /.test(lines[i + 1])) {
+          i++
+          const subChecked = /^\s{2,}[-*] \[x\]/i.test(lines[i])
+          const subText = lines[i].replace(/^\s+[-*] \[[ xX]\] /, '').trim()
+          if (subText) {
+            idCounter++
+            task.subtasks.push({
+              id: `board_${idCounter}_${crypto.createHash('md5').update(subText + idCounter).digest('hex').slice(0, 6)}`,
+              text: subText,
+              checked: subChecked,
+            })
+          }
+        }
       }
     }
   }
@@ -155,6 +171,16 @@ function parseBoard(raw) {
 }
 
 // ── Serializer ─────────────────────────────────────────────────────────────
+
+function serializeTask(task) {
+  const lines = [`- [${task.checked ? 'x' : ' '}] ${task.text}`]
+  if (task.subtasks && task.subtasks.length > 0) {
+    for (const sub of task.subtasks) {
+      lines.push(`  - [${sub.checked ? 'x' : ' '}] ${sub.text}`)
+    }
+  }
+  return lines
+}
 
 function serializeBoard(data) {
   const lines = []
@@ -198,7 +224,7 @@ function serializeBoard(data) {
           lines.push('')
         }
         for (const task of catTasks) {
-          lines.push(`- [${task.checked ? 'x' : ' '}] ${task.text}`)
+          lines.push(...serializeTask(task))
         }
         lines.push('')
       }
@@ -206,19 +232,19 @@ function serializeBoard(data) {
       lines.push('> Esto no va al backlog. Si lo haces 3 días seguidos, ya es hábito.')
       lines.push('')
       for (const task of tasks) {
-        lines.push(`- [${task.checked ? 'x' : ' '}] ${task.text}`)
+        lines.push(...serializeTask(task))
       }
       lines.push('')
     } else if (col === 'hecho') {
       lines.push('> 2025-2026 (migrado de Coda)')
       lines.push('')
       for (const task of tasks) {
-        lines.push(`- [${task.checked ? 'x' : ' '}] ${task.text}`)
+        lines.push(...serializeTask(task))
       }
       lines.push('')
     } else {
       for (const task of tasks) {
-        lines.push(`- [${task.checked ? 'x' : ' '}] ${task.text}`)
+        lines.push(...serializeTask(task))
       }
       lines.push('')
     }
@@ -362,6 +388,92 @@ app.post('/api/board/delete', authMiddleware, (req, res) => {
     if (!found) return res.status(404).json({ error: 'Task not found' })
     
     board.columns[found.col].splice(found.idx, 1)
+    const updated = writeBoard(board)
+    res.json({ columns: updated.columns, notes: updated.notes, columnOrder: COLUMNS })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/board/subtask/add', authMiddleware, (req, res) => {
+  try {
+    const { taskId, text } = req.body
+    if (!taskId || !text) return res.status(400).json({ error: 'taskId and text required' })
+
+    const board = readBoard()
+    const found = findTask(board, taskId)
+    if (!found) return res.status(404).json({ error: 'Task not found' })
+
+    const task = board.columns[found.col][found.idx]
+    if (!task.subtasks) task.subtasks = []
+    task.subtasks.push({
+      id: generateId(text + Date.now()),
+      text: text.trim(),
+      checked: false,
+    })
+
+    const updated = writeBoard(board)
+    res.json({ columns: updated.columns, notes: updated.notes, columnOrder: COLUMNS })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/board/subtask/toggle', authMiddleware, (req, res) => {
+  try {
+    const { taskId, subtaskId } = req.body
+    if (!taskId || !subtaskId) return res.status(400).json({ error: 'taskId and subtaskId required' })
+
+    const board = readBoard()
+    const found = findTask(board, taskId)
+    if (!found) return res.status(404).json({ error: 'Task not found' })
+
+    const task = board.columns[found.col][found.idx]
+    const sub = task.subtasks?.find(s => s.id === subtaskId)
+    if (!sub) return res.status(404).json({ error: 'Subtask not found' })
+
+    sub.checked = !sub.checked
+    const updated = writeBoard(board)
+    res.json({ columns: updated.columns, notes: updated.notes, columnOrder: COLUMNS })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/board/subtask/delete', authMiddleware, (req, res) => {
+  try {
+    const { taskId, subtaskId } = req.body
+    if (!taskId || !subtaskId) return res.status(400).json({ error: 'taskId and subtaskId required' })
+
+    const board = readBoard()
+    const found = findTask(board, taskId)
+    if (!found) return res.status(404).json({ error: 'Task not found' })
+
+    const task = board.columns[found.col][found.idx]
+    if (!task.subtasks) return res.status(404).json({ error: 'Subtask not found' })
+
+    task.subtasks = task.subtasks.filter(s => s.id !== subtaskId)
+    const updated = writeBoard(board)
+    res.json({ columns: updated.columns, notes: updated.notes, columnOrder: COLUMNS })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/board/subtask/edit', authMiddleware, (req, res) => {
+  try {
+    const { taskId, subtaskId, text } = req.body
+    if (!taskId || !subtaskId || !text) return res.status(400).json({ error: 'taskId, subtaskId and text required' })
+
+    const board = readBoard()
+    const found = findTask(board, taskId)
+    if (!found) return res.status(404).json({ error: 'Task not found' })
+
+    const task = board.columns[found.col][found.idx]
+    const sub = task.subtasks?.find(s => s.id === subtaskId)
+    if (!sub) return res.status(404).json({ error: 'Subtask not found' })
+
+    sub.text = text.trim()
     const updated = writeBoard(board)
     res.json({ columns: updated.columns, notes: updated.notes, columnOrder: COLUMNS })
   } catch (err) {
