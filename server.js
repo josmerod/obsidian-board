@@ -395,6 +395,28 @@ app.post('/api/board/delete', authMiddleware, (req, res) => {
   }
 })
 
+app.post('/api/board/edit', authMiddleware, (req, res) => {
+  try {
+    const { taskId, text, category } = req.body
+    if (!taskId) return res.status(400).json({ error: 'taskId required' })
+
+    const board = readBoard()
+    const found = findTask(board, taskId)
+    if (!found) return res.status(404).json({ error: 'Task not found' })
+
+    const task = board.columns[found.col][found.idx]
+    if (text !== undefined) task.text = text.trim()
+    if (category !== undefined) {
+      task.category = found.col === 'backlog' ? (category || null) : null
+    }
+
+    const updated = writeBoard(board)
+    res.json({ columns: updated.columns, notes: updated.notes, columnOrder: COLUMNS })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 app.post('/api/board/subtask/add', authMiddleware, (req, res) => {
   try {
     const { taskId, text } = req.body

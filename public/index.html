@@ -413,6 +413,64 @@ header .hint {
   font-size: 0.7rem;
   cursor: pointer;
 }
+.add-form select {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.75rem;
+  outline: none;
+  margin-top: 0.35rem;
+}
+.add-form select:focus { border-color: var(--accent); }
+
+/* ── Edit Mode ──────────────────────────────────── */
+.card-edit-row {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+.card-edit-row input, .card-edit-row select {
+  flex: 1;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.72rem;
+  outline: none;
+}
+.card-edit-row input:focus, .card-edit-row select:focus { border-color: var(--accent); }
+.card-edit-row select { max-width: 140px; }
+.card-edit-row .edit-btn {
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  border: none;
+  font-size: 0.65rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.edit-btn.save { background: var(--success); color: white; }
+.edit-btn.save:hover { opacity: 0.85; }
+.edit-btn.cancel-edit { background: none; border: 1px solid var(--border); color: var(--muted); }
+
+.card-edit-btn {
+  position: absolute;
+  top: 6px; right: 22px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.65rem;
+  padding: 2px 4px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.card:hover .card-edit-btn { opacity: 1; }
+.card-edit-btn:hover { color: var(--accent); }
 
 /* ── Notes ──────────────────────────────────────── */
 .notes-section {
@@ -581,6 +639,9 @@ function renderBoard() {
   const { columns, notes } = boardData
   const board = document.getElementById('board')
 
+  // Extract unique categories from backlog
+  const categories = [...new Set(columns.backlog.map(t => t.category).filter(Boolean))].sort()
+
   // Stats
   const stats = COLUMN_ORDER.map(col => {
     const meta = COLUMN_META[col]
@@ -603,7 +664,7 @@ function renderBoard() {
     const tasks = columns[col]
     const cards = tasks.length === 0
       ? `<div class="empty">Empty</div>`
-      : tasks.map(task => renderCard(task, meta)).join('')
+      : tasks.map(task => renderCard(task, meta, categories)).join('')
 
     return `
       <div class="column" data-column="${col}"
@@ -627,21 +688,48 @@ function renderBoard() {
             <button class="btn-add" onclick="addTask('${col}')">Add</button>
             <button class="btn-cancel" onclick="hideAddForm('${col}')">✕</button>
           </div>
+          ${col === 'backlog' ? `
+          <select id="add-cat-${col}">
+            <option value="">General</option>
+            ${categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
+          </select>` : ''}
         </div>
       </div>
     `
   }).join('')
 }
 
-function renderCard(task, meta) {
+function renderCard(task, meta, categories = []) {
   const category = task.category && meta.label === 'Backlog' ? `<div class="card-category">${task.category}</div>` : ''
   const subs = task.subtasks || []
   const doneSubs = subs.filter(s => s.checked).length
   const hasSubs = subs.length > 0
+  const isBacklog = meta.label === 'Backlog'
 
   const subtaskCountHtml = hasSubs
     ? `<span class="subtask-count has-subs">${doneSubs}/${subs.length}</span>`
     : `<span class="subtask-count"></span>`
+
+  const categoryOptions = categories.map(c =>
+    `<option value="${escapeHtml(c)}" ${task.category === c ? 'selected' : ''}>${escapeHtml(c)}</option>`
+  ).join('')
+
+  const categorySelect = isBacklog
+    ? `<select id="cat-${task.id}" onchange="editCategory('${task.id}',this.value)">
+       <option value="">General</option>${categoryOptions}
+       <option value="__new">+ Nueva...</option>
+     </select>`
+    : ''
+
+  const editRow = `
+    <div class="card-edit-row" id="edit-${task.id}" style="display:none">
+      <input type="text" value="${escapeHtml(task.text)}" id="edit-input-${task.id}"
+             onkeydown="if(event.key==='Enter')saveEdit('${task.id}');if(event.key==='Escape')cancelEdit('${task.id}')">
+      ${categorySelect}
+      <button class="edit-btn save" onclick="saveEdit('${task.id}')">✓</button>
+      <button class="edit-btn cancel-edit" onclick="cancelEdit('${task.id}')">✕</button>
+    </div>
+  `
 
   const subtasksHtml = subs.map(s => `
     <div class="subtask">
@@ -665,6 +753,7 @@ function renderCard(task, meta) {
          ondragstart="handleDragStart(event)"
          ondragend="handleDragEnd(event)">
       <button class="card-delete" onclick="deleteTask('${task.id}', event)" title="Delete">✕</button>
+      <button class="card-edit-btn" onclick="startEdit('${task.id}')" title="Edit">✏️</button>
       ${category}
       <div class="card-inner">
         <div class="card-checkbox ${task.checked ? 'checked' : ''}"
@@ -673,6 +762,7 @@ function renderCard(task, meta) {
         <button class="card-expand" onclick="toggleExpand('${task.id}')" title="Subtasks">▶</button>
         ${subtaskCountHtml}
       </div>
+      ${editRow}
       <div class="subtasks" id="subs-${task.id}">
         ${subtasksHtml}
         ${subtaskAddHtml}
@@ -787,10 +877,77 @@ async function addTask(col) {
   const text = input.value.trim()
   if (!text) return
   
+  const payload = { text, column: col }
+  if (col === 'backlog') {
+    const catSelect = document.getElementById(`add-cat-${col}`)
+    if (catSelect && catSelect.value) payload.category = catSelect.value
+  }
+  
   try {
-    boardData = await api('add', { text, column: col })
+    boardData = await api('add', payload)
     renderBoard()
     toast('Task added')
+  } catch (e) {
+    toast(e.message, true)
+  }
+}
+
+// ── Edit Task ──────────────────────────────────────
+
+function startEdit(taskId) {
+  // Hide any other open edit rows
+  document.querySelectorAll('.card-edit-row').forEach(el => el.style.display = 'none')
+  const row = document.getElementById(`edit-${taskId}`)
+  if (row) {
+    row.style.display = 'flex'
+    const input = document.getElementById(`edit-input-${taskId}`)
+    if (input) { input.focus(); input.select() }
+  }
+}
+
+function cancelEdit(taskId) {
+  const row = document.getElementById(`edit-${taskId}`)
+  if (row) row.style.display = 'none'
+}
+
+async function saveEdit(taskId) {
+  const input = document.getElementById(`edit-input-${taskId}`)
+  const text = input?.value.trim()
+  if (!text) return
+
+  const payload = { taskId, text }
+  const catSelect = document.getElementById(`cat-${taskId}`)
+  if (catSelect && catSelect.value === '__new') {
+    const newCat = prompt('Nueva categoría:')
+    if (newCat && newCat.trim()) {
+      payload.category = newCat.trim()
+    } else {
+      toast('Categoría cancelada', true)
+      return
+    }
+  } else if (catSelect) {
+    payload.category = catSelect.value || null
+  }
+
+  try {
+    boardData = await api('edit', payload)
+    renderBoard()
+    toast('Task updated')
+  } catch (e) {
+    toast(e.message, true)
+  }
+}
+
+async function editCategory(taskId, value) {
+  if (value === '__new') {
+    // Let saveEdit handle it — or trigger save immediately
+    return
+  }
+  // Auto-save category change
+  try {
+    boardData = await api('edit', { taskId, category: value || null })
+    renderBoard()
+    toast('Category updated')
   } catch (e) {
     toast(e.message, true)
   }
