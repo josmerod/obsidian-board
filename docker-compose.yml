@@ -10,7 +10,7 @@ services:
       - AUTH_PASSWORD=${AUTH_PASSWORD:-}
       - PORT=8080
     volumes:
-      - /mnt/user/sync/obsidian-vault:/data:ro
+      - /mnt/user/sync/obsidian-vault:/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
       interval: 30s
