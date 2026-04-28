@@ -333,7 +333,7 @@ header .hint {
   font-size: 8px;
   font-weight: 700;
 }
-.subtask-del {
+.subtask-del, .subtask-edit {
   background: none;
   border: none;
   color: transparent;
@@ -342,8 +342,19 @@ header .hint {
   padding: 0 2px;
   transition: color 0.15s;
 }
-.subtask:hover .subtask-del { color: var(--muted); }
+.subtask:hover .subtask-del, .subtask:hover .subtask-edit { color: var(--muted); }
 .subtask-del:hover { color: var(--danger); }
+.subtask-edit:hover { color: var(--accent); }
+.subtask-edit-input {
+  flex: 1;
+  padding: 0.15rem 0.35rem;
+  border-radius: 3px;
+  border: 1px solid var(--accent);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.72rem;
+  outline: none;
+}
 
 .subtask-add {
   display: flex;
@@ -732,10 +743,11 @@ function renderCard(task, meta, categories = []) {
   `
 
   const subtasksHtml = subs.map(s => `
-    <div class="subtask">
+    <div class="subtask" id="sub-${task.id}-${s.id}">
       <div class="subtask-check ${s.checked ? 'checked-sub' : ''}"
            onclick="toggleSubtask('${task.id}','${s.id}',event)"></div>
-      <div class="subtask-text ${s.checked ? 'checked-sub' : ''}">${escapeHtml(s.text)}</div>
+      <div class="subtask-text ${s.checked ? 'checked-sub' : ''}" id="sub-text-${task.id}-${s.id}">${escapeHtml(s.text)}</div>
+      <button class="subtask-edit" onclick="startEditSubtask('${task.id}','${s.id}')" title="Edit">✏️</button>
       <button class="subtask-del" onclick="deleteSubtask('${task.id}','${s.id}',event)" title="Delete">✕</button>
     </div>
   `).join('')
@@ -1011,6 +1023,50 @@ async function deleteSubtask(taskId, subtaskId, event) {
   } catch (e) {
     toast(e.message, true)
   }
+}
+
+// ── Edit Subtask ──────────────────────────────────
+
+function startEditSubtask(taskId, subtaskId) {
+  const textEl = document.getElementById(`sub-text-${taskId}-${subtaskId}`)
+  if (!textEl) return
+  const currentText = textEl.textContent
+  const input = document.createElement('input')
+  input.type = 'text'
+  input.className = 'subtask-edit-input'
+  input.value = currentText
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') { saveEditSubtask(taskId, subtaskId, input.value); e.stopPropagation() }
+    if (e.key === 'Escape') { cancelEditSubtask(taskId, subtaskId, currentText); e.stopPropagation() }
+  }
+  input.onblur = () => saveEditSubtask(taskId, subtaskId, input.value)
+  textEl.replaceWith(input)
+  input.focus()
+  input.select()
+}
+
+async function saveEditSubtask(taskId, subtaskId, newText) {
+  const text = newText.trim()
+  if (!text) { cancelEditSubtask(taskId, subtaskId, ''); return }
+  try {
+    boardData = await api('subtask/edit', { taskId, subtaskId, text })
+    renderBoard()
+    // Re-expand
+    const el = document.getElementById(`subs-${taskId}`)
+    const btn = el?.previousElementSibling?.querySelector('.card-expand')
+    if (el) { el.classList.add('visible'); btn?.classList.add('open') }
+    toast('Subtask updated')
+  } catch (e) {
+    toast(e.message, true)
+  }
+}
+
+function cancelEditSubtask(taskId, subtaskId, originalText) {
+  // Just re-render to restore original state
+  renderBoard()
+  const el = document.getElementById(`subs-${taskId}`)
+  const btn = el?.previousElementSibling?.querySelector('.card-expand')
+  if (el) { el.classList.add('visible'); btn?.classList.add('open') }
 }
 
 // ── Toast ────────────────────────────────────────────
