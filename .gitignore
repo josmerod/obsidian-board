@@ -2,3 +2,5 @@ node_modules/
 test-Board.md
 *.tmp
 .env
+.board-state.json
+

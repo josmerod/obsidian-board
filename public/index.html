@@ -896,7 +896,7 @@ async function login() {
       localStorage.setItem('board-token', pw)
       document.getElementById('login-screen').style.display = 'none'
       document.getElementById('board-screen').classList.add('visible')
-      await loadBoard()
+      await loadBoardWithRefresh()
     } else {
       document.getElementById('login-error').style.display = 'block'
     }
@@ -921,6 +921,61 @@ async function loadBoard() {
   try {
     boardData = await api('read')
     renderBoard()
+  } catch (e) {
+    toast(e.message, true)
+  }
+}
+
+// ── Auto-Refresh (mtime polling) ──────────────────────────
+
+let _lastMtime = 0
+let _refreshTimer = null
+
+async function checkForUpdates() {
+  try {
+    const headers = { 'Content-Type': 'application/json' }
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`
+    const res = await fetch('/api/board/etag', { headers })
+    if (!res.ok) return
+    const { mtime } = await res.json()
+    if (mtime && mtime !== _lastMtime) {
+      _lastMtime = mtime
+      // Preserve UI state: save open edit forms and filters
+      const savedFilters = { ...columnFilters }
+      const editTaskId = document.querySelector('.card-edit-row')?.closest('.card')?.dataset?.taskId || null
+
+      boardData = await api('read')
+      renderBoard()
+
+      // Restore filters
+      columnFilters = savedFilters
+      renderBoard()
+    }
+  } catch {}
+}
+
+function startAutoRefresh() {
+  stopAutoRefresh()
+  _refreshTimer = setInterval(checkForUpdates, 5000)
+}
+
+function stopAutoRefresh() {
+  if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null }
+}
+
+// Initialize mtime on first load
+async function loadBoardWithRefresh() {
+  try {
+    boardData = await api('read')
+    // Grab initial mtime
+    try {
+      const headers = { 'Content-Type': 'application/json' }
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`
+      const res = await fetch('/api/board/etag', { headers })
+      if (res.ok) { const { mtime } = await res.json(); if (mtime) _lastMtime = mtime }
+    } catch {}
+    renderBoard()
+    startAutoRefresh()
   } catch (e) {
     toast(e.message, true)
   }
@@ -1545,7 +1600,13 @@ function setTheme(name) {
         document.getElementById('login-screen').style.display = 'none'
         document.getElementById('board-screen').classList.add('visible')
         boardData = await data.json()
+        // Grab initial mtime and start auto-refresh
+        try {
+          const res = await fetch('/api/board/etag', { headers: { 'Authorization': `Bearer ${authToken}` } })
+          if (res.ok) { const { mtime } = await res.json(); if (mtime) _lastMtime = mtime }
+        } catch {}
         renderBoard()
+        startAutoRefresh()
         return
       }
     } catch {}

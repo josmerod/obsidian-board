@@ -6,8 +6,47 @@ const express = require('express')
 // ── Config ──────────────────────────────────────────────────────────────────
 
 const BOARD_PATH = process.env.BOARD_PATH || '/data/Board.md'
+const STATE_PATH = BOARD_PATH.replace(/\.md$/, '.board-state.json')
 const PORT = parseInt(process.env.PORT || '8080', 10)
 const AUTH_PASSWORD = process.env.AUTH_PASSWORD || ''
+
+// ── Sidecar State (stable task IDs) ───────────────────────────────────────
+
+let _state = null
+
+function textHash(text) {
+  return crypto.createHash('sha256').update(text.trim()).digest('hex').slice(0, 12)
+}
+
+function readState() {
+  if (_state) return _state
+  try { _state = JSON.parse(fs.readFileSync(STATE_PATH, 'utf8')) } catch { _state = { id_map: {} } }
+  return _state
+}
+
+function writeState() {
+  if (!_state) return
+  try { fs.writeFileSync(STATE_PATH, JSON.stringify(_state, null, 2)) } catch {}
+}
+
+function getOrCreateId(column, text) {
+  const state = readState()
+  const key = `${column}:${textHash(text)}`
+  if (state.id_map[key]) return state.id_map[key]
+  // Generate new stable ID (no Date.now — deterministic per key)
+  const id = `b_${textHash(text + column)}_${Object.keys(state.id_map).length.toString(36)}`
+  state.id_map[key] = id
+  return id
+}
+
+function getOrCreateSubId(parentText, text) {
+  const state = readState()
+  const key = `sub:${textHash(parentText)}:${textHash(text)}`
+  if (state.id_map[key]) return state.id_map[key]
+  const id = `b_${textHash(text)}_sub_${Object.keys(state.id_map).length.toString(36)}`
+  state.id_map[key] = id
+  return id
+}
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -32,12 +71,9 @@ const COLUMN_TITLE = {
 // ── ID Generation ─────────────────────────────────────────────────────────
 
 function generateId(text) {
-  let hash = 0
-  for (let i = 0; i < text.length; i++) {
-    hash = ((hash << 5) - hash) + text.charCodeAt(i)
-    hash |= 0
-  }
-  return `b_${Math.abs(hash).toString(36)}_${Date.now().toString(36)}`
+  // Fallback — action routes now use getOrCreateId directly,
+  // but this is kept for any remaining call sites.
+  return `b_${textHash(text)}_${Date.now().toString(36)}`
 }
 
 // ── Priority Constants ─────────────────────────────────────────────────────
@@ -99,7 +135,6 @@ function parseBoard(raw) {
   const lines = raw.split('\n')
   let currentColumn = null
   let currentCategory = null
-  let idCounter = 0
   let notesLines = []
   let inNotes = false
 
@@ -150,9 +185,8 @@ function parseBoard(raw) {
       const checked = /^[-*] \[x\]/i.test(line)
       const text = line.replace(/^[-*] \[[ xX]\] /, '').trim()
       if (text) {
-        idCounter++
         const task = {
-          id: `board_${idCounter}_${crypto.createHash('md5').update(text + idCounter).digest('hex').slice(0, 6)}`,
+          id: getOrCreateId(currentColumn, text),
           text,
           checked,
           category: currentColumn === 'habitos' ? null : currentCategory,
@@ -166,9 +200,8 @@ function parseBoard(raw) {
           const subChecked = /^\s{2,}[-*] \[x\]/i.test(lines[i])
           const subText = lines[i].replace(/^\s+[-*] \[[ xX]\] /, '').trim()
           if (subText) {
-            idCounter++
             task.subtasks.push({
-              id: `board_${idCounter}_${crypto.createHash('md5').update(subText + idCounter).digest('hex').slice(0, 6)}`,
+              id: getOrCreateSubId(text, subText),
               text: subText,
               checked: subChecked,
             })
@@ -279,6 +312,7 @@ function readBoard() {
 function writeBoard(data) {
   const content = serializeBoard(data)
   writeBoardFile(content)
+  writeState()  // Persist any new/updated IDs to sidecar
   return parseBoard(content)
 }
 
@@ -319,6 +353,16 @@ app.get('/api/board', authMiddleware, (req, res) => {
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
+  }
+})
+
+// Etag endpoint for auto-refresh polling
+app.get('/api/board/etag', authMiddleware, (req, res) => {
+  try {
+    const stat = fs.statSync(BOARD_PATH)
+    res.json({ mtime: stat.mtimeMs })
+  } catch {
+    res.json({ mtime: 0 })
   }
 })
 
@@ -370,9 +414,10 @@ app.post('/api/board/add', authMiddleware, (req, res) => {
     }
     
     const board = readBoard()
+    const trimmed = text.trim()
     board.columns[column].push({
-      id: generateId(text),
-      text: text.trim(),
+      id: getOrCreateId(column, trimmed),
+      text: trimmed,
       checked: column === 'hecho',
       category: ['hoy','semana','backlog'].includes(column) ? (category || null) : null,
       column,
@@ -435,9 +480,10 @@ app.post('/api/board/subtask/add', authMiddleware, (req, res) => {
 
     const task = board.columns[found.col][found.idx]
     if (!task.subtasks) task.subtasks = []
+    const trimmed = text.trim()
     task.subtasks.push({
-      id: generateId(text + Date.now()),
-      text: text.trim(),
+      id: getOrCreateSubId(task.text, trimmed),
+      text: trimmed,
       checked: false,
     })
 
