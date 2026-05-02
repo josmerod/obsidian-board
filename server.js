@@ -129,14 +129,14 @@ function parseBoard(raw) {
         inNotes = false
         continue
       }
-      // Unknown ## header inside backlog = subcategory
-      if (currentColumn === 'backlog') {
+      // Unknown ## header inside a column = category header
+      if (currentColumn && currentColumn !== 'habitos') {
         currentCategory = line.slice(3).trim()
       }
       continue
     }
 
-    if (line.startsWith('### ') && currentColumn === 'backlog') {
+    if (line.startsWith('### ') && currentColumn && currentColumn !== 'habitos') {
       currentCategory = line.slice(4).trim()
       continue
     }
@@ -155,7 +155,7 @@ function parseBoard(raw) {
           id: `board_${idCounter}_${crypto.createHash('md5').update(text + idCounter).digest('hex').slice(0, 6)}`,
           text,
           checked,
-          category: currentColumn === 'backlog' ? currentCategory : null,
+          category: currentColumn === 'habitos' ? null : currentCategory,
           column: currentColumn,
           subtasks: [],
         }
@@ -222,7 +222,22 @@ function serializeBoard(data) {
       lines.push('')
     }
 
-    if (col === 'backlog') {
+    if (col === 'habitos') {
+      lines.push('> Esto no va al backlog. Si lo haces 3 días seguidos, ya es hábito.')
+      lines.push('')
+      for (const task of tasks) {
+        lines.push(...serializeTask(task))
+      }
+      lines.push('')
+    } else if (col === 'hecho') {
+      lines.push('> 2025-2026 (migrado de Coda)')
+      lines.push('')
+      for (const task of tasks) {
+        lines.push(...serializeTask(task))
+      }
+      lines.push('')
+    } else {
+      // hoy, semana, backlog: group by category
       const grouped = new Map()
       for (const task of tasks) {
         const cat = task.category || 'General'
@@ -239,25 +254,6 @@ function serializeBoard(data) {
         }
         lines.push('')
       }
-    } else if (col === 'habitos') {
-      lines.push('> Esto no va al backlog. Si lo haces 3 días seguidos, ya es hábito.')
-      lines.push('')
-      for (const task of tasks) {
-        lines.push(...serializeTask(task))
-      }
-      lines.push('')
-    } else if (col === 'hecho') {
-      lines.push('> 2025-2026 (migrado de Coda)')
-      lines.push('')
-      for (const task of tasks) {
-        lines.push(...serializeTask(task))
-      }
-      lines.push('')
-    } else {
-      for (const task of tasks) {
-        lines.push(...serializeTask(task))
-      }
-      lines.push('')
     }
   }
 
@@ -338,7 +334,7 @@ app.post('/api/board/move', authMiddleware, (req, res) => {
     
     const [task] = board.columns[found.col].splice(found.idx, 1)
     task.column = column
-    if (column !== 'backlog') task.category = null
+    if (column === 'habitos' || column === 'hecho') task.category = null
     task.checked = column === 'hecho'
     board.columns[column].push(task)
     
@@ -378,7 +374,7 @@ app.post('/api/board/add', authMiddleware, (req, res) => {
       id: generateId(text),
       text: text.trim(),
       checked: column === 'hecho',
-      category: column === 'backlog' ? (category || null) : null,
+      category: ['hoy','semana','backlog'].includes(column) ? (category || null) : null,
       column,
     })
     
@@ -418,7 +414,7 @@ app.post('/api/board/edit', authMiddleware, (req, res) => {
     const task = board.columns[found.col][found.idx]
     if (text !== undefined) task.text = text.trim()
     if (category !== undefined) {
-      task.category = found.col === 'backlog' ? (category || null) : null
+      task.category = ['hoy','semana','backlog'].includes(found.col) ? (category || null) : null
     }
 
     const updated = writeBoard(board)
@@ -517,6 +513,72 @@ app.post('/api/board/subtask/edit', authMiddleware, (req, res) => {
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', board_path: BOARD_PATH })
+})
+
+// ── Category Management Endpoints ──────────────────────────
+
+app.get('/api/board/categories', authMiddleware, (req, res) => {
+  try {
+    const board = readBoard()
+    const cats = new Map()
+    for (const col of ['hoy', 'semana', 'backlog']) {
+      for (const task of board.columns[col]) {
+        const cat = task.category || 'General'
+        if (!cats.has(cat)) cats.set(cat, { name: cat, count: 0 })
+        cats.get(cat).count++
+      }
+    }
+    res.json({ categories: [...cats.values()].sort((a, b) => a.name.localeCompare(b.name)) })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/board/category/rename', authMiddleware, (req, res) => {
+  try {
+    const { oldName, newName } = req.body
+    if (!oldName || !newName) return res.status(400).json({ error: 'oldName and newName required' })
+
+    const board = readBoard()
+    let changed = 0
+    for (const col of ['hoy', 'semana', 'backlog']) {
+      for (const task of board.columns[col]) {
+        if (task.category === oldName) { task.category = newName; changed++ }
+        else if (task.category === null && oldName === 'General') { /* skip General rename of null */ }
+      }
+    }
+    // Also rename "General" -> newName for uncategorized (null) tasks
+    if (oldName === 'General') {
+      for (const col of ['hoy', 'semana', 'backlog']) {
+        for (const task of board.columns[col]) {
+          if (task.category === null) { task.category = newName; changed++ }
+        }
+      }
+    }
+    const updated = writeBoard(board)
+    res.json({ columns: updated.columns, notes: updated.notes, columnOrder: COLUMNS, changed })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/board/category/delete', authMiddleware, (req, res) => {
+  try {
+    const { name } = req.body
+    if (!name) return res.status(400).json({ error: 'name required' })
+
+    const board = readBoard()
+    let changed = 0
+    for (const col of ['hoy', 'semana', 'backlog']) {
+      for (const task of board.columns[col]) {
+        if (task.category === name) { task.category = null; changed++ }
+      }
+    }
+    const updated = writeBoard(board)
+    res.json({ columns: updated.columns, notes: updated.notes, columnOrder: COLUMNS, changed })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
 })
 
 // Start server

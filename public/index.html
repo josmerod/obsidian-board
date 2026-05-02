@@ -582,6 +582,29 @@ header .hint {
 .prio-btn[data-prio="~"].active   { color: #6b7280; border-color: #6b7280; box-shadow: 0 0 0 1.5px #6b7280; }
 .prio-btn[data-prio="~~"].active  { color: #9ca3af; border-color: #9ca3af; box-shadow: 0 0 0 1.5px #9ca3af; }
 
+/* ── Category Filter ───────────────────────────── */
+.cat-filter-bar { display: flex; gap: 3px; flex-wrap: wrap; padding: 4px 0; }
+.cat-filter-pill { font-size: 10px; padding: 1px 6px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer; }
+.cat-filter-pill.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.cat-filter-pill.hidden-card { display: none; }
+
+/* ── Category Manager Modal ───────────────────── */
+.cat-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; display: flex; align-items: center; justify-content: center; }
+.cat-modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; width: 360px; max-width: 90vw; color: var(--text); }
+.cat-modal h3 { margin: 0 0 0.75rem; font-size: 1rem; }
+.cat-modal-close { float: right; background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.2rem; }
+.cat-modal-close:hover { color: var(--text); }
+.cat-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0; border-bottom: 1px solid var(--border); }
+.cat-item:last-child { border-bottom: none; }
+.cat-item-name { flex: 1; font-size: 0.85rem; }
+.cat-item-count { font-size: 0.75rem; color: var(--text-secondary); }
+.cat-item-actions { display: flex; gap: 0.25rem; }
+.cat-item-actions button { background: none; border: none; cursor: pointer; font-size: 0.85rem; padding: 2px 4px; border-radius: 4px; }
+.cat-item-actions button:hover { background: var(--card); }
+.cat-add-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+.cat-add-row input { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.5rem; color: var(--text); font-size: 0.85rem; }
+.cat-add-row button { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 0.3rem 0.75rem; cursor: pointer; font-size: 0.85rem; }
+
 /* ── Mobile ─────────────────────────────────────── */
 @media (max-width: 640px) {
   #board-screen { padding: 0.75rem; }
@@ -608,6 +631,7 @@ header .hint {
   <header>
     <h1>🗂️ Board</h1>
     <span class="badge">Obsidian Sync</span>
+    <button class="cat-mgr-btn" onclick="openCategoryManager()" title="Manage categories" style="background:none;border:1px solid var(--border);border-radius:6px;padding:2px 6px;cursor:pointer;font-size:0.9rem;color:var(--text-secondary)">⚙️</button>
     <div class="stats" id="stats"></div>
     <div class="hint">Drag cards to move · Check to toggle · Changes sync to Board.md</div>
   </header>
@@ -636,6 +660,8 @@ let draggingId = null
 let authToken = localStorage.getItem('board-token') || null
 let currentPriority = null
 let lastAddedTaskId = {}  // col -> taskId of most recently added task
+let columnFilters = {}    // col -> category name or null (null = show all)
+const CATEGORIZED_COLUMNS = ['hoy', 'semana', 'backlog']
 
 // ── API ──────────────────────────────────────────────
 
@@ -754,7 +780,7 @@ async function addTaskAndReset(col, closeAfter) {
   if (!text) return
 
   const payload = { text, column: col }
-  if (col === 'backlog') {
+  if (['hoy','semana','backlog'].includes(col)) {
     const catSelect = document.getElementById(`add-cat-${col}`)
     if (catSelect && catSelect.value) payload.category = catSelect.value
   }
@@ -841,8 +867,8 @@ function renderBoard() {
   const { columns, notes } = boardData
   const board = document.getElementById('board')
 
-  // Extract unique categories from backlog
-  const categories = [...new Set(columns.backlog.map(t => t.category).filter(Boolean))].sort()
+  // Extract unique categories from all categorized columns
+  const categories = [...new Set(CATEGORIZED_COLUMNS.flatMap(col => columns[col].map(t => t.category).filter(Boolean)))].sort()
 
   // Stats
   const stats = COLUMN_ORDER.map(col => {
@@ -864,9 +890,25 @@ function renderBoard() {
   board.innerHTML = COLUMN_ORDER.map(col => {
     const meta = COLUMN_META[col]
     const tasks = columns[col]
-    const cards = tasks.length === 0
-      ? `<div class="empty">Empty</div>`
-      : tasks.map(task => renderCard(task, meta, categories)).join('')
+
+    // Apply category filter
+    const activeFilter = columnFilters[col] || null
+    const filteredTasks = activeFilter
+      ? tasks.filter(t => (t.category || 'General') === activeFilter)
+      : tasks
+
+    const cards = filteredTasks.length === 0
+      ? `<div class="empty">${tasks.length === 0 ? 'Empty' : 'No match'}</div>`
+      : filteredTasks.map(task => renderCard(task, meta, categories)).join('')
+
+    // Build category filter bar
+    const colCats = [...new Set(tasks.map(t => t.category || 'General'))].sort()
+    const filterBar = CATEGORIZED_COLUMNS.includes(col) && colCats.length > 1
+      ? `<div class="cat-filter-bar">
+           <span class="cat-filter-pill ${!activeFilter ? 'active' : ''}" onclick="setColumnFilter('${col}', null)">All</span>
+           ${colCats.map(c => `<span class="cat-filter-pill ${activeFilter === c ? 'active' : ''}" onclick="setColumnFilter('${col}', '${escapeAttr(c)}')">${escapeHtml(c)}</span>`).join('')}
+         </div>`
+      : ''
 
     return `
       <div class="column" data-column="${col}"
@@ -882,6 +924,7 @@ function renderBoard() {
           ${meta.canAdd ? `<button class="add-btn" onclick="showAddForm('${col}')" title="Add task">+</button>` : ''}
         </div>
         <div class="drop-hint">↕ Drop here</div>
+        ${filterBar}
         <div class="cards">${cards}</div>
         <div class="add-form" id="add-form-${col}">
           ${buildPriorityRowHtml(null, 'setPriority')}
@@ -891,7 +934,7 @@ function renderBoard() {
             <button class="btn-add" onclick="handleAddKeydown({key:'Enter'},'${col}')">Add</button>
             <button class="btn-cancel" onclick="hideAddForm('${col}')">✕</button>
           </div>
-          ${col === 'backlog' ? `
+          ${['hoy','semana','backlog'].includes(col) ? `
           <select id="add-cat-${col}">
             <option value="">General</option>
             ${categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
@@ -904,11 +947,12 @@ function renderBoard() {
 
 function renderCard(task, meta, categories = []) {
   const { priority, cssClass, text: cleanText } = parsePriority(task.text)
-  const category = task.category && meta.label === 'Backlog' ? `<div class="card-category">${task.category}</div>` : ''
+  const isCategorized = CATEGORIZED_COLUMNS.includes(task.column)
+  const category = task.category && isCategorized ? `<div class="card-category">${task.category}</div>` : ''
   const subs = task.subtasks || []
   const doneSubs = subs.filter(s => s.checked).length
   const hasSubs = subs.length > 0
-  const isBacklog = meta.label === 'Backlog'
+  const isBacklog = isCategorized
 
   const subtaskCountHtml = hasSubs
     ? `<span class="subtask-count has-subs">${doneSubs}/${subs.length}</span>`
@@ -981,6 +1025,106 @@ function escapeHtml(text) {
   const div = document.createElement('div')
   div.textContent = text
   return div.innerHTML
+}
+
+function escapeAttr(text) {
+  return text.replace(/'/g, "\\'").replace(/"/g, '&quot;')
+}
+
+// ── Column Category Filter ────────────────────────
+
+function setColumnFilter(col, category) {
+  columnFilters[col] = category
+  renderBoard()
+}
+
+// ── Category Manager ──────────────────────────────
+
+async function openCategoryManager() {
+  const headers = { 'Authorization': `Bearer ${authToken}` }
+  const res = await fetch('/api/board/categories', { headers })
+  if (!res.ok) { toast('Failed to load categories', true); return }
+  const { categories } = await res.json()
+
+  const overlay = document.createElement('div')
+  overlay.className = 'cat-modal-overlay'
+  overlay.id = 'cat-modal'
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove() }
+  overlay.innerHTML = `
+    <div class="cat-modal">
+      <button class="cat-modal-close" onclick="document.getElementById('cat-modal').remove()">✕</button>
+      <h3>🏷️ Categories</h3>
+      <div id="cat-list">
+        ${categories.map(c => `
+          <div class="cat-item" data-cat="${escapeAttr(c.name)}">
+            <span class="cat-item-name">${escapeHtml(c.name)}</span>
+            <span class="cat-item-count">${c.count}</span>
+            <span class="cat-item-actions">
+              <button onclick="renameCategoryPrompt('${escapeAttr(c.name)}')" title="Rename">✏️</button>
+              <button onclick="deleteCategoryConfirm('${escapeAttr(c.name)}')" title="Delete">🗑️</button>
+            </span>
+          </div>
+        `).join('')}
+      </div>
+      <div class="cat-add-row">
+        <input type="text" placeholder="New category..." id="cat-new-name" onkeydown="if(event.key==='Enter')addNewCategory()">
+        <button onclick="addNewCategory()">Add</button>
+      </div>
+    </div>
+  `
+  document.body.appendChild(overlay)
+}
+
+async function renameCategoryPrompt(oldName) {
+  const newName = prompt('Rename category:', oldName)
+  if (!newName || newName === oldName) return
+  try {
+    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }
+    const res = await fetch('/api/board/category/rename', { method: 'POST', headers, body: JSON.stringify({ oldName, newName: newName.trim() }) })
+    if (!res.ok) throw new Error((await res.json()).error)
+    const data = await res.json()
+    boardData = { columns: data.columns, notes: data.notes, columnOrder: data.columnOrder }
+    renderBoard()
+    toast(`Renamed "${oldName}" → "${newName.trim()}"`)
+    // Refresh modal
+    document.getElementById('cat-modal')?.remove()
+    openCategoryManager()
+  } catch (e) { toast(e.message, true) }
+}
+
+async function deleteCategoryConfirm(name) {
+  if (!confirm(`Delete category "${name}"? Tasks will become uncategorized.`)) return
+  try {
+    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }
+    const res = await fetch('/api/board/category/delete', { method: 'POST', headers, body: JSON.stringify({ name }) })
+    if (!res.ok) throw new Error((await res.json()).error)
+    const data = await res.json()
+    boardData = { columns: data.columns, notes: data.notes, columnOrder: data.columnOrder }
+    // Clear any active filter referencing this category
+    for (const col in columnFilters) { if (columnFilters[col] === name) columnFilters[col] = null }
+    renderBoard()
+    toast(`Deleted "${name}" (${data.changed} tasks)`)
+    document.getElementById('cat-modal')?.remove()
+    openCategoryManager()
+  } catch (e) { toast(e.message, true) }
+}
+
+async function addNewCategory() {
+  const input = document.getElementById('cat-new-name')
+  const name = input?.value.trim()
+  if (!name) return
+  // "Add" category = rename General to the new name for all uncategorized tasks
+  try {
+    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }
+    const res = await fetch('/api/board/category/rename', { method: 'POST', headers, body: JSON.stringify({ oldName: 'General', newName: name }) })
+    if (!res.ok) throw new Error((await res.json()).error)
+    const data = await res.json()
+    boardData = { columns: data.columns, notes: data.notes, columnOrder: data.columnOrder }
+    renderBoard()
+    toast(`Category "${name}" created`)
+    document.getElementById('cat-modal')?.remove()
+    openCategoryManager()
+  } catch (e) { toast(e.message, true) }
 }
 
 // ── Drag & Drop ──────────────────────────────────────
@@ -1089,7 +1233,7 @@ async function addTask(col) {
   if (!text) return
   
   const payload = { text, column: col }
-  if (col === 'backlog') {
+  if (['hoy','semana','backlog'].includes(col)) {
     const catSelect = document.getElementById(`add-cat-${col}`)
     if (catSelect && catSelect.value) payload.category = catSelect.value
   }
