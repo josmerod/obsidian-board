@@ -142,7 +142,7 @@ header {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 1rem 1.25rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   backdrop-filter: blur(12px);
 }
 header h1 { font-size: 1.35rem; font-weight: 600; display: inline; }
@@ -167,6 +167,140 @@ header .hint {
   color: var(--muted);
   margin-top: 0.35rem;
 }
+
+/* ── Board Switcher ────────────────────────────── */
+.board-switcher {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.5rem;
+  margin-bottom: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.board-switcher::-webkit-scrollbar { height: 0; }
+.board-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  user-select: none;
+  position: relative;
+}
+.board-tab:hover {
+  background: var(--card);
+  color: var(--text);
+}
+.board-tab.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.board-tab .tab-delete {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 0 2px;
+  line-height: 1;
+  margin-left: 0.15rem;
+}
+.board-tab:hover .tab-delete,
+.board-tab.active:hover .tab-delete {
+  display: inline;
+}
+.board-tab .tab-delete:hover {
+  color: var(--danger);
+}
+.board-switcher .add-board-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  line-height: 1;
+}
+.board-switcher .add-board-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+.board-new-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+.board-new-input-row input {
+  padding: 0.3rem 0.55rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.78rem;
+  outline: none;
+  width: 120px;
+}
+.board-new-input-row button {
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.board-new-input-row .new-btn-confirm { background: var(--accent); color: white; }
+.board-new-input-row .new-btn-confirm:hover { opacity: 0.85; }
+.board-new-input-row .new-btn-cancel { background: var(--card); color: var(--muted); border: 1px solid var(--border); }
+
+/* ── Board Context Menu ─────────────────────────── */
+.board-ctx-menu {
+  position: fixed;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0;
+  z-index: 200;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  min-width: 120px;
+}
+.board-ctx-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.75rem;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.board-ctx-menu button:hover { background: var(--card); }
+.board-ctx-menu button.ctx-danger { color: var(--danger); }
+.board-ctx-menu button.ctx-danger:hover { background: rgba(239,68,68,0.1); }
 
 .board {
   display: flex;
@@ -662,6 +796,137 @@ header .hint {
 .cat-add-row input { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.5rem; color: var(--text); font-size: 0.85rem; }
 .cat-add-row button { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 0.3rem 0.75rem; cursor: pointer; font-size: 0.85rem; }
 
+/* ── Agent Notes ───────────────────────────────── */
+.agent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.55rem;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(139,92,246,0.15);
+  color: #a78bfa;
+  cursor: pointer;
+  transition: background 0.15s;
+  vertical-align: middle;
+  margin-left: 4px;
+  line-height: 1.3;
+  user-select: none;
+}
+.agent-badge:hover { background: rgba(139,92,246,0.3); }
+.agent-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.6rem;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  white-space: pre-line;
+  z-index: 50;
+  min-width: 140px;
+  max-width: 260px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  line-height: 1.4;
+}
+.agent-tooltip.visible { display: block; }
+.agent-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--border);
+}
+.agent-tooltip .tt-label {
+  font-weight: 600;
+  color: #a78bfa;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+}
+.agent-tooltip .tt-row {
+  display: flex;
+  gap: 4px;
+  padding: 1px 0;
+}
+.agent-tooltip .tt-key {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.agent-tooltip .tt-val { color: var(--text); word-break: break-word; }
+
+/* ── User Comments ─────────────────────────────── */
+.task-comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 0.3rem 0.1rem 0.1rem;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+.task-comment .comment-icon { flex-shrink: 0; font-size: 0.7rem; }
+.task-comment .comment-text { flex: 1; }
+.task-comment .comment-del {
+  background: none;
+  border: none;
+  color: transparent;
+  cursor: pointer;
+  font-size: 0.6rem;
+  padding: 0 2px;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+.task-comment:hover .comment-del { color: var(--muted); }
+.task-comment .comment-del:hover { color: var(--danger); }
+
+.comment-add-row {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.2rem 0;
+}
+.comment-add-row input {
+  flex: 1;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.68rem;
+  outline: none;
+}
+.comment-add-row input:focus { border-color: var(--accent); }
+.comment-add-row button {
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  border: none;
+  font-size: 0.62rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+.comment-add-row .comment-btn-add { background: var(--accent); color: white; }
+.comment-add-row .comment-btn-add:hover { opacity: 0.85; }
+
+.comment-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.65rem;
+  padding: 1px 4px;
+  border-radius: 3px;
+  transition: color 0.15s;
+}
+.comment-toggle-btn:hover { color: var(--accent); }
+
 /* ── Mobile ─────────────────────────────────────── */
 @media (max-width: 640px) {
   #board-screen { padding: 0.75rem; }
@@ -699,6 +964,10 @@ header .hint {
     <div class="stats" id="stats"></div>
     <div class="hint">Drag cards to move · Check to toggle · Changes sync to Board.md</div>
   </header>
+
+  <!-- Board Switcher -->
+  <div class="board-switcher" id="board-switcher"></div>
+
   <div class="board" id="board"></div>
   <div class="notes-section" id="notes-section" style="display:none">
     <summary>📝 Notas</summary>
@@ -727,12 +996,30 @@ let lastAddedTaskId = {}  // col -> taskId of most recently added task
 let columnFilters = {}    // col -> category name or null (null = show all)
 const CATEGORIZED_COLUMNS = ['hoy', 'semana', 'backlog']
 
+// ── Multi-Board State ──────────────────────────────
+
+const DEFAULT_BOARD = 'main'
+let activeBoard = localStorage.getItem('activeBoard') || DEFAULT_BOARD
+let allBoards = []
+
+function boardQuery() {
+  return activeBoard === DEFAULT_BOARD ? '' : `?board=${encodeURIComponent(activeBoard)}`
+}
+
+function boardQueryAmp() {
+  return activeBoard === DEFAULT_BOARD ? '' : `&board=${encodeURIComponent(activeBoard)}`
+}
+
 // ── API ──────────────────────────────────────────────
 
 async function api(action, payload = {}) {
   const headers = { 'Content-Type': 'application/json' }
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`
-  const res = await fetch(`/api/board${action === 'read' ? '' : '/' + action}`, {
+  const q = boardQuery()
+  const actionUrl = action === 'read'
+    ? `/api/board${q}`
+    : `/api/board/${action}${q}`
+  const res = await fetch(actionUrl, {
     method: action === 'read' ? 'GET' : 'POST',
     headers,
     body: action === 'read' ? undefined : JSON.stringify(payload),
@@ -740,6 +1027,128 @@ async function api(action, payload = {}) {
   if (res.status === 401) { authToken = null; localStorage.removeItem('board-token'); showLogin(); throw new Error('Unauthorized') }
   if (!res.ok) throw new Error((await res.json()).error || `HTTP ${res.status}`)
   return res.json()
+}
+
+// ── Board CRUD API ──────────────────────────────────
+
+async function fetchBoards() {
+  const headers = { 'Content-Type': 'application/json' }
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`
+  const res = await fetch('/api/boards', { headers })
+  if (!res.ok) throw new Error((await res.json()).error || `HTTP ${res.status}`)
+  return res.json()
+}
+
+async function createBoard(name) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`
+  const res = await fetch('/api/boards', { method: 'POST', headers, body: JSON.stringify({ name }) })
+  if (!res.ok) throw new Error((await res.json()).error || `HTTP ${res.status}`)
+  return res.json()
+}
+
+async function deleteBoard(name) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`
+  const res = await fetch(`/api/boards?board=${encodeURIComponent(name)}`, { method: 'DELETE', headers })
+  if (!res.ok) throw new Error((await res.json()).error || `HTTP ${res.status}`)
+  return res.json()
+}
+
+// ── Board Switcher Rendering ────────────────────────
+
+function renderBoardSwitcher() {
+  const container = document.getElementById('board-switcher')
+  if (!container) return
+
+  const tabs = allBoards.map(b => {
+    const isActive = b.name === activeBoard
+    const displayName = b.name === DEFAULT_BOARD ? '🗂️ Main' : `📋 ${b.name}`
+    const deleteBtn = b.name === DEFAULT_BOARD
+      ? ''
+      : `<button class="tab-delete" onclick="event.stopPropagation();confirmDeleteBoard('${escapeAttr(b.name)}')" title="Delete board">✕</button>`
+    return `<button class="board-tab ${isActive ? 'active' : ''}" onclick="switchBoard('${escapeAttr(b.name)}')">${escapeHtml(displayName)}${deleteBtn}</button>`
+  }).join('')
+
+  const addBtn = `<button class="add-board-btn" onclick="showNewBoardInput()" title="Create new board">+</button>`
+
+  container.innerHTML = tabs + addBtn
+}
+
+function showNewBoardInput() {
+  const container = document.getElementById('board-switcher')
+  const addBtn = container.querySelector('.add-board-btn')
+  if (!addBtn || container.querySelector('.board-new-input-row')) return
+
+  const row = document.createElement('div')
+  row.className = 'board-new-input-row'
+  row.innerHTML = `
+    <input type="text" placeholder="board-name" id="new-board-input" maxlength="30"
+           onkeydown="if(event.key==='Enter')confirmNewBoard();if(event.key==='Escape')cancelNewBoard()">
+    <button class="new-btn-confirm" onclick="confirmNewBoard()">✓</button>
+    <button class="new-btn-cancel" onclick="cancelNewBoard()">✕</button>
+  `
+  addBtn.before(row)
+  const input = document.getElementById('new-board-input')
+  input.focus()
+
+  // Store reference for cancel
+  container._newBoardRow = row
+}
+
+function cancelNewBoard() {
+  const container = document.getElementById('board-switcher')
+  if (container._newBoardRow) {
+    container._newBoardRow.remove()
+    container._newBoardRow = null
+  }
+}
+
+async function confirmNewBoard() {
+  const input = document.getElementById('new-board-input')
+  const name = input?.value.trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 30)
+  if (!name) { toast('Invalid name', true); return }
+
+  try {
+    await createBoard(name)
+    toast(`Board "${name}" created`)
+    await refreshBoards()
+    switchBoard(name)
+  } catch (e) {
+    toast(e.message, true)
+  }
+  cancelNewBoard()
+}
+
+function confirmDeleteBoard(name) {
+  if (!confirm(`Delete board "${name}"? This cannot be undone.`)) return
+  deleteBoard(name).then(() => {
+    toast(`Board "${name}" deleted`)
+    if (activeBoard === name) {
+      switchBoard(DEFAULT_BOARD)
+    } else {
+      refreshBoards()
+    }
+  }).catch(e => toast(e.message, true))
+}
+
+async function switchBoard(name) {
+  cancelNewBoard()
+  activeBoard = name
+  localStorage.setItem('activeBoard', name)
+  columnFilters = {}
+  lastAddedTaskId = {}
+  _lastMtime = 0
+  renderBoardSwitcher()
+  await loadBoardWithRefresh()
+}
+
+async function refreshBoards() {
+  try {
+    const { boards } = await fetchBoards()
+    allBoards = boards
+    renderBoardSwitcher()
+  } catch {}
 }
 
 // ── Priority Helpers ────────────────────────────────
@@ -890,12 +1299,14 @@ async function login() {
   const pw = document.getElementById('login-password').value
   if (!pw) return
   try {
-    const res = await fetch('/api/board', { headers: { 'Authorization': `Bearer ${pw}` } })
+    const q = boardQuery()
+    const res = await fetch(`/api/board${q}`, { headers: { 'Authorization': `Bearer ${pw}` } })
     if (res.ok) {
       authToken = pw
       localStorage.setItem('board-token', pw)
       document.getElementById('login-screen').style.display = 'none'
       document.getElementById('board-screen').classList.add('visible')
+      await refreshBoards()
       await loadBoardWithRefresh()
     } else {
       document.getElementById('login-error').style.display = 'block'
@@ -935,7 +1346,8 @@ async function checkForUpdates() {
   try {
     const headers = { 'Content-Type': 'application/json' }
     if (authToken) headers['Authorization'] = `Bearer ${authToken}`
-    const res = await fetch('/api/board/etag', { headers })
+    const q = boardQuery()
+    const res = await fetch(`/api/board/etag${q}`, { headers })
     if (!res.ok) return
     const { mtime } = await res.json()
     if (mtime && mtime !== _lastMtime) {
@@ -971,7 +1383,8 @@ async function loadBoardWithRefresh() {
     try {
       const headers = { 'Content-Type': 'application/json' }
       if (authToken) headers['Authorization'] = `Bearer ${authToken}`
-      const res = await fetch('/api/board/etag', { headers })
+      const q = boardQuery()
+      const res = await fetch(`/api/board/etag${q}`, { headers })
       if (res.ok) { const { mtime } = await res.json(); if (mtime) _lastMtime = mtime }
     } catch {}
     renderBoard()
@@ -1117,6 +1530,41 @@ function renderCard(task, meta, categories = []) {
     </div>
   `
 
+  // Agent note badge + tooltip
+  const hasAgentNotes = task.agentNotes && typeof task.agentNotes === 'object' && Object.keys(task.agentNotes).length > 0
+  const agentBadgeHtml = hasAgentNotes ? `
+    <span class="agent-badge" onclick="toggleAgentTooltip('${task.id}', event)" title="Agent notes">🤖 ${Object.keys(task.agentNotes).length}</span>
+    <div class="agent-tooltip" id="agent-tt-${task.id}">
+      <div class="tt-label">🤖 Agent Notes</div>
+      ${Object.entries(task.agentNotes).map(([k, v]) => `
+        <div class="tt-row"><span class="tt-key">${escapeHtml(k)}:</span><span class="tt-val">${escapeHtml(v === true ? 'yes' : String(v))}</span></div>
+      `).join('')}
+    </div>
+  ` : ''
+
+  // User comment display
+  const commentHtml = task.userComment
+    ? `<div class="task-comment" id="comment-display-${task.id}">
+         <span class="comment-icon">💬</span>
+         <span class="comment-text">${escapeHtml(task.userComment)}</span>
+         <button class="comment-del" onclick="deleteComment('${task.id}', event)" title="Remove comment">✕</button>
+       </div>`
+    : ''
+
+  // Comment add row (hidden by default, toggled by button)
+  const commentAddHtml = `
+    <div class="comment-add-row" id="comment-add-${task.id}" style="display:none">
+      <input type="text" placeholder="Add note..." id="comment-input-${task.id}"
+             onkeydown="if(event.key==='Enter')saveComment('${task.id}');if(event.key==='Escape')toggleCommentInput('${task.id}')">
+      <button class="comment-btn-add" onclick="saveComment('${task.id}')">💾</button>
+    </div>
+  `
+
+  // Comment toggle button (shows when no comment exists, or always available)
+  const commentToggleHtml = task.userComment ? '' : `
+    <button class="comment-toggle-btn" onclick="toggleCommentInput('${task.id}')" title="Add note">💬+</button>
+  `
+
   return `
     <div class="card ${task.checked ? 'checked' : ''}" draggable="true" data-task-id="${task.id}"
          ondragstart="handleDragStart(event)"
@@ -1127,7 +1575,7 @@ function renderCard(task, meta, categories = []) {
       <div class="card-inner">
         <div class="card-checkbox ${task.checked ? 'checked' : ''}"
              onclick="toggleTask('${task.id}')"></div>
-        <div class="card-text">${priorityBadgeHtml(priority, cssClass)}${escapeHtml(cleanText)}</div>
+        <div class="card-text">${priorityBadgeHtml(priority, cssClass)}${escapeHtml(cleanText)}${agentBadgeHtml}</div>
         <button class="card-expand" onclick="toggleExpand('${task.id}')" title="Subtasks">▶</button>
         ${subtaskCountHtml}
       </div>
@@ -1135,6 +1583,9 @@ function renderCard(task, meta, categories = []) {
       <div class="subtasks" id="subs-${task.id}">
         ${subtasksHtml}
         ${subtaskAddHtml}
+        ${commentHtml}
+        ${commentAddHtml}
+        ${commentToggleHtml}
       </div>
     </div>
   `
@@ -1161,7 +1612,8 @@ function setColumnFilter(col, category) {
 
 async function openCategoryManager() {
   const headers = { 'Authorization': `Bearer ${authToken}` }
-  const res = await fetch('/api/board/categories', { headers })
+  const q = boardQuery()
+  const res = await fetch(`/api/board/categories${q}`, { headers })
   if (!res.ok) { toast('Failed to load categories', true); return }
   const { categories } = await res.json()
 
@@ -1199,7 +1651,8 @@ async function renameCategoryPrompt(oldName) {
   if (!newName || newName === oldName) return
   try {
     const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }
-    const res = await fetch('/api/board/category/rename', { method: 'POST', headers, body: JSON.stringify({ oldName, newName: newName.trim() }) })
+    const q = boardQuery()
+    const res = await fetch(`/api/board/category/rename${q}`, { method: 'POST', headers, body: JSON.stringify({ oldName, newName: newName.trim() }) })
     if (!res.ok) throw new Error((await res.json()).error)
     const data = await res.json()
     boardData = { columns: data.columns, notes: data.notes, columnOrder: data.columnOrder }
@@ -1215,7 +1668,8 @@ async function deleteCategoryConfirm(name) {
   if (!confirm(`Delete category "${name}"? Tasks will become uncategorized.`)) return
   try {
     const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }
-    const res = await fetch('/api/board/category/delete', { method: 'POST', headers, body: JSON.stringify({ name }) })
+    const q = boardQuery()
+    const res = await fetch(`/api/board/category/delete${q}`, { method: 'POST', headers, body: JSON.stringify({ name }) })
     if (!res.ok) throw new Error((await res.json()).error)
     const data = await res.json()
     boardData = { columns: data.columns, notes: data.notes, columnOrder: data.columnOrder }
@@ -1235,7 +1689,8 @@ async function addNewCategory() {
   // "Add" category = rename General to the new name for all uncategorized tasks
   try {
     const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }
-    const res = await fetch('/api/board/category/rename', { method: 'POST', headers, body: JSON.stringify({ oldName: 'General', newName: name }) })
+    const q = boardQuery()
+    const res = await fetch(`/api/board/category/rename${q}`, { method: 'POST', headers, body: JSON.stringify({ oldName: 'General', newName: name }) })
     if (!res.ok) throw new Error((await res.json()).error)
     const data = await res.json()
     boardData = { columns: data.columns, notes: data.notes, columnOrder: data.columnOrder }
@@ -1278,10 +1733,10 @@ async function handleDrop(e) {
   e.preventDefault()
   const targetColumn = e.currentTarget.dataset.column
   e.currentTarget.classList.remove('drag-over')
-  
+
   const taskId = e.dataTransfer.getData('text/plain')
   if (!taskId) return
-  
+
   // Find source column
   let sourceCol = null
   for (const col of COLUMN_ORDER) {
@@ -1291,13 +1746,13 @@ async function handleDrop(e) {
     }
   }
   if (!sourceCol || sourceCol === targetColumn) return
-  
+
   // Validate: habits can't be moved
   if (sourceCol === 'habitos') {
     toast('Hábitos cannot be moved', true)
     return
   }
-  
+
   try {
     boardData = await api('move', { taskId, column: targetColumn })
     renderBoard()
@@ -1350,13 +1805,13 @@ async function addTask(col) {
   const input = document.getElementById(`add-input-${col}`)
   const text = input.value.trim()
   if (!text) return
-  
+
   const payload = { text, column: col }
   if (['hoy','semana','backlog'].includes(col)) {
     const catSelect = document.getElementById(`add-cat-${col}`)
     if (catSelect && catSelect.value) payload.category = catSelect.value
   }
-  
+
   try {
     boardData = await api('add', payload)
     renderBoard()
@@ -1549,6 +2004,82 @@ function cancelEditSubtask(taskId, subtaskId, originalText) {
   if (el) { el.classList.add('visible'); btn?.classList.add('open') }
 }
 
+// ── Agent Notes Tooltip ──────────────────────────
+
+function toggleAgentTooltip(taskId, event) {
+  event.stopPropagation()
+  const tt = document.getElementById(`agent-tt-${taskId}`)
+  if (!tt) return
+  // Close all other tooltips
+  document.querySelectorAll('.agent-tooltip.visible').forEach(el => {
+    if (el.id !== `agent-tt-${taskId}`) el.classList.remove('visible')
+  })
+  tt.classList.toggle('visible')
+}
+
+// Close agent tooltips when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.agent-badge') && !e.target.closest('.agent-tooltip')) {
+    document.querySelectorAll('.agent-tooltip.visible').forEach(el => el.classList.remove('visible'))
+  }
+})
+
+// ── User Comments ────────────────────────────────
+
+async function saveComment(taskId) {
+  const input = document.getElementById(`comment-input-${taskId}`)
+  const comment = input?.value.trim()
+  if (!comment) return
+
+  try {
+    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }
+    const q = boardQuery()
+    const res = await fetch(`/api/board/comment${q}`, { method: 'POST', headers, body: JSON.stringify({ taskId, comment }) })
+    if (!res.ok) throw new Error((await res.json()).error)
+    const data = await res.json()
+    boardData = { columns: data.columns, notes: data.notes, columnOrder: data.columnOrder }
+    renderBoard()
+    // Re-expand the task
+    const el = document.getElementById(`subs-${taskId}`)
+    const btn = el?.previousElementSibling?.querySelector('.card-expand')
+    if (el) { el.classList.add('visible'); btn?.classList.add('open') }
+    toast('Note added')
+  } catch (e) {
+    toast(e.message, true)
+  }
+}
+
+async function deleteComment(taskId, event) {
+  event.stopPropagation()
+  try {
+    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }
+    const q = boardQuery()
+    const res = await fetch(`/api/board/comment${q}`, { method: 'DELETE', headers, body: JSON.stringify({ taskId }) })
+    if (!res.ok) throw new Error((await res.json()).error)
+    const data = await res.json()
+    boardData = { columns: data.columns, notes: data.notes, columnOrder: data.columnOrder }
+    renderBoard()
+    // Re-expand the task
+    const el = document.getElementById(`subs-${taskId}`)
+    const btn = el?.previousElementSibling?.querySelector('.card-expand')
+    if (el) { el.classList.add('visible'); btn?.classList.add('open') }
+    toast('Note removed')
+  } catch (e) {
+    toast(e.message, true)
+  }
+}
+
+function toggleCommentInput(taskId) {
+  const addRow = document.getElementById(`comment-add-${taskId}`)
+  if (!addRow) return
+  const isVisible = addRow.style.display !== 'none'
+  addRow.style.display = isVisible ? 'none' : 'flex'
+  if (!isVisible) {
+    const input = document.getElementById(`comment-input-${taskId}`)
+    if (input) setTimeout(() => input.focus(), 50)
+  }
+}
+
 // ── Toast ────────────────────────────────────────────
 
 let toastTimeout
@@ -1590,22 +2121,38 @@ function setTheme(name) {
   })
 })()
 
+// ── Dismiss context menu on click outside ──────────
+
+document.addEventListener('click', () => {
+  document.querySelectorAll('.board-ctx-menu').forEach(m => m.remove())
+})
+
 // ── Init ─────────────────────────────────────────────
 
 (async function init() {
   if (authToken) {
     try {
-      const data = await fetch('/api/board', { headers: { 'Authorization': `Bearer ${authToken}` } })
+      // First fetch boards to validate token
+      await refreshBoards()
+      // Ensure activeBoard is valid
+      if (!allBoards.find(b => b.name === activeBoard)) {
+        activeBoard = DEFAULT_BOARD
+        localStorage.setItem('activeBoard', activeBoard)
+      }
+
+      const q = boardQuery()
+      const data = await fetch(`/api/board${q}`, { headers: { 'Authorization': `Bearer ${authToken}` } })
       if (data.ok) {
         document.getElementById('login-screen').style.display = 'none'
         document.getElementById('board-screen').classList.add('visible')
         boardData = await data.json()
         // Grab initial mtime and start auto-refresh
         try {
-          const res = await fetch('/api/board/etag', { headers: { 'Authorization': `Bearer ${authToken}` } })
+          const res = await fetch(`/api/board/etag${q}`, { headers: { 'Authorization': `Bearer ${authToken}` } })
           if (res.ok) { const { mtime } = await res.json(); if (mtime) _lastMtime = mtime }
         } catch {}
         renderBoard()
+        renderBoardSwitcher()
         startAutoRefresh()
         return
       }
