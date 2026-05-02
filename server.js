@@ -40,6 +40,17 @@ function generateId(text) {
   return `b_${Math.abs(hash).toString(36)}_${Date.now().toString(36)}`
 }
 
+// ── Priority Constants ─────────────────────────────────────────────────────
+
+const PRIORITIES = [
+  { marker: '!!!', label: 'Critical' },
+  { marker: '!!',  label: 'High' },
+  { marker: '!',   label: 'Medium' },
+  { marker: '-',   label: 'Low' },
+  { marker: '~',   label: 'Someday' },
+  { marker: '~~',  label: 'Maybe' },
+]
+
 // ── File I/O (with retry for Syncthing) ────────────────────────────────────
 
 function readBoardFile() {
