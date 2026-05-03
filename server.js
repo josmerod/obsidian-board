@@ -61,10 +61,10 @@ function writeState(boardName) {
 
 function getOrCreateId(boardName, column, text) {
   const state = readState(boardName)
-  const key = `${column}:${textHash(text)}`
+  const key = textHash(text)
   if (state.id_map[key]) return state.id_map[key]
-  // Generate new stable ID (no Date.now — deterministic per key)
-  const id = `b_${textHash(text + column)}_${Object.keys(state.id_map).length.toString(36)}`
+  // Generate new stable ID (deterministic per text)
+  const id = `b_${textHash(text)}_${Object.keys(state.id_map).length.toString(36)}`
   state.id_map[key] = id
   return id
 }
