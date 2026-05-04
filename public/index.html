@@ -68,6 +68,36 @@
 [data-theme="light"] .card { box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 [data-theme="light"] .column { box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
 
+/* ── Cyberpunk Theme ───────────────────────────── */
+[data-theme="cyberpunk"] {
+  --bg: #0d0015;
+  --surface: #140022;
+  --card: #1a0a2e;
+  --card-hover: #231040;
+  --border: #2d1650;
+  --border-active: #e040fb;
+  --text: #e0d4f0;
+  --text-secondary: #9078a8;
+  --muted: #5c4570;
+  --accent: #e040fb;
+  --accent-dim: rgba(224,64,251,0.12);
+  --danger: #ff4081;
+  --success: #69f0ae;
+}
+[data-theme="cyberpunk"] body {
+  background: linear-gradient(160deg, #0d0015 0%, #12001f 40%, #0a0a1a 100%);
+}
+[data-theme="cyberpunk"] .column-header .col-emoji,
+[data-theme="cyberpunk"] .column-header .col-label {
+  text-shadow: 0 0 14px rgba(224,64,251,0.35);
+}
+[data-theme="cyberpunk"] .card {
+  border-left: 2px solid transparent;
+}
+[data-theme="cyberpunk"] .card:hover {
+  border-left-color: rgba(224,64,251,0.4);
+}
+
 /* ── Theme Selector ──────────────────────────────── */
 .theme-selector { display:flex; gap:6px; align-items:center; margin-left:8px; }
 .theme-dot {
@@ -81,6 +111,8 @@
 .theme-dot[data-theme="watchtower"].active { border-color:#00ff9c; }
 .theme-dot[data-theme="light"] { background:#ffffff; border-color:#e0e0e4; }
 .theme-dot[data-theme="light"].active { border-color:#3b82f6; }
+.theme-dot[data-theme="cyberpunk"] { background:#0d0015; border-color:#e040fb44; }
+.theme-dot[data-theme="cyberpunk"].active { border-color:#e040fb; }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -957,6 +989,7 @@ header .hint {
       <div class="theme-selector">
         <div class="theme-dot active" data-theme="midnight" title="Midnight" onclick="setTheme('midnight')"></div>
         <div class="theme-dot" data-theme="watchtower" title="Watchtower" onclick="setTheme('watchtower')"></div>
+        <div class="theme-dot" data-theme="cyberpunk" title="Cyberpunk" onclick="setTheme('cyberpunk')"></div>
         <div class="theme-dot" data-theme="light" title="Light" onclick="setTheme('light')"></div>
       </div>
     </div>
