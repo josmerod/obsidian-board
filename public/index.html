@@ -452,15 +452,16 @@ header .hint {
   border: none;
   color: var(--muted);
   cursor: pointer;
-  font-size: 0.65rem;
+  font-size: 0.8rem;
   padding: 2px 4px;
   border-radius: 3px;
   transition: color 0.15s, transform 0.2s;
   flex-shrink: 0;
   margin-top: 2px;
+  line-height: 1;
 }
-.card-expand:hover { color: var(--text); }
-.card-expand.open { transform: rotate(90deg); }
+.card-expand:hover { color: var(--accent); }
+.card-expand.open { color: var(--accent); transform: scale(1.2); }
 
 .subtask-count {
   font-size: 0.6rem;
@@ -1586,7 +1587,7 @@ function renderCard(task, meta, categories = []) {
         <div class="card-checkbox ${task.checked ? 'checked' : ''}"
              onclick="toggleTask('${task.id}')"></div>
         <div class="card-text">${priorityBadgeHtml(priority, cssClass)}${escapeHtml(cleanText)}${agentBadgeHtml}</div>
-        <button class="card-expand" onclick="toggleExpand('${task.id}')" title="Subtasks">▶</button>
+        <button class="card-expand" onclick="toggleExpand('${task.id}')" title="Subtasks">≡</button>
         ${subtaskCountHtml}
       </div>
       ${editRow}
@@ -1785,6 +1786,7 @@ async function toggleTask(taskId) {
 
 async function deleteTask(taskId, event) {
   event.stopPropagation()
+  if (!confirm('¿Borrar esta tarea?')) return
   try {
     boardData = await api('delete', { taskId })
     renderBoard()
