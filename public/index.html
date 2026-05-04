@@ -1210,7 +1210,7 @@ function handleAddKeydown(e, col) {
   if (!input) return
 
   if (e.key === 'Escape') {
-    e.preventDefault()
+    if (e.preventDefault) e.preventDefault()
     currentPriority = null
     document.querySelectorAll(`#add-form-${col} .prio-btn`).forEach(b => b.classList.remove('active'))
     hideAddForm(col)
@@ -1218,7 +1218,7 @@ function handleAddKeydown(e, col) {
   }
 
   if (e.key === 'Enter') {
-    e.preventDefault()
+    if (e.preventDefault) e.preventDefault()
     const text = input.value.trim()
     if (!text) return
 
@@ -1258,6 +1258,8 @@ async function addTaskAndReset(col, closeAfter) {
     if (catSelect && catSelect.value) payload.category = catSelect.value
   }
 
+  // Pause auto-refresh to prevent it from clobbering the form during async add
+  stopAutoRefresh()
   try {
     boardData = await api('add', payload)
     // Track the last added task id for Shift+Enter subtask creation
@@ -1278,9 +1280,17 @@ async function addTaskAndReset(col, closeAfter) {
       const newInput = document.getElementById(`add-input-${col}`)
       if (newInput) newInput.focus()
     }
+    // Update mtime so auto-refresh doesn't immediately re-fetch
+    try {
+      const res = await fetch(`/api/board/etag${boardQuery()}`, {
+        headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' }
+      })
+      if (res.ok) { const { mtime } = await res.json(); if (mtime) _lastMtime = mtime }
+    } catch {}
   } catch (e) {
     toast(e.message, true)
   }
+  startAutoRefresh()
 }
 
 async function addSubtaskDirect(taskId, text) {
